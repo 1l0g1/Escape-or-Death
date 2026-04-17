@@ -1,0 +1,71 @@
+extends CharacterBody2D
+
+const SPEED = 300.0
+const KNOCKBACK = 100.0
+const INVINCIBLE_TIME = 1.0
+
+var health = 100
+var invincible = false
+
+@onready var sprite = $AnimatedSprite2D
+@onready var bar = $ProgressBar
+
+func _ready():
+	add_to_group("player")
+	bar.max_value = health
+	bar.value = health
+
+func _physics_process(delta):
+	var x = Input.get_axis("left", "right")
+	var y = Input.get_axis("up", "down")
+	
+	velocity.x = x * SPEED
+	velocity.y = y * SPEED
+	
+	if y < 0:
+		sprite.play("walkup")
+	elif x != 0:
+		sprite.play("walk")
+		sprite.flip_h = x < 0
+	else:
+		sprite.play("idle")
+	
+	move_and_slide()
+
+func take_damage(amt):
+	if invincible:
+		return
+	
+	health -= amt
+	bar.value = health
+	
+	# flash red
+	sprite.modulate = Color.RED
+	await get_tree().create_timer(0.1).timeout
+	sprite.modulate = Color.WHITE
+	
+	# knockback
+	var e = get_tree().get_first_node_in_group("enemies")
+	if e:
+		var dir = (position - e.position).normalized()
+		velocity = dir * KNOCKBACK
+		move_and_slide()
+	
+	# bar color
+	if health > 60:
+		bar.modulate = Color.GREEN
+	elif health > 40:
+		bar.modulate = Color.YELLOW
+	else:
+		bar.modulate = Color.RED
+	
+	invincible = true
+	await get_tree().create_timer(INVINCIBLE_TIME).timeout
+	invincible = false
+	
+	if health <= 0:
+		die()
+
+func die():
+	print("player died")
+	queue_free()
